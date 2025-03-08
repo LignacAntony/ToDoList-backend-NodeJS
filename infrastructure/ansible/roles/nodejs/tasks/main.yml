@@ -1,0 +1,103 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Install required packages
+  apt:
+    name:
+      - curl
+      - git
+      - apache2
+    state: present
+  become: true
+
+- name: Ensure apache2 service is properly configured
+  shell: |
+    mkdir -p /var/run/apache2
+    chown www-data:www-data /var/run/apache2
+  become: true
+
+- name: Ensure apache2 service is started
+  shell: service apache2 start
+  become: true
+
+- name: enable mod_rewrite
+  apache2_module:
+    name: rewrite
+    state: present
+  notify:
+    - restart apache2
+
+- name: Install Node.js
+  shell: |
+    curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+    apt-get install -y nodejs
+  args:
+    creates: /usr/bin/node
+  become: true
+
+- name: Install Yarn
+  shell: |
+    curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+    echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+    apt-get update && apt-get install -y yarn
+  args:
+    creates: /usr/bin/yarn
+  become: true
+
+- name: Install application dependencies
+  npm:
+    path: /var/www/todolist
+    state: present
+  become: true
+  become_user: "{{ ansible_user }}"
+
+- name: Update database configuration
+  template:
+    src: database.js.j2
+    dest: /var/www/todolist/src/config/database.js
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+  become: true
+
+- name: Configure Apache to proxy requests to Node.js
+  template:
+    src: todolist.conf.j2
+    dest: /etc/apache2/sites-available/todolist.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+- name: Enable Apache modules
+  apache2_module:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - proxy
+    - proxy_http
+    - proxy_balancer
+    - lbmethod_byrequests
+  become: true
+
+- name: Enable todolist site
+  command: a2ensite todolist.conf
+  become: true
+
+- name: Restart Apache2 after configuration
+  shell: service apache2 restart
+  become: true
+
+- name: Create systemd service for Node.js application
+  template:
+    src: todolist.service.j2
+    dest: /etc/systemd/system/todolist.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: restart todolist 

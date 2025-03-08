@@ -1,3 +1,5 @@
 import app from './app';
 
-app.listen(YOUR_PORT); // example: 3333
+app.listen(3333, () => {
+  console.log('Serveur démarré sur le port 3333');
+});

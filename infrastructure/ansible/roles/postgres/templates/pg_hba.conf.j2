@@ -1,0 +1,15 @@
+# PostgreSQL Client Authentication Configuration File
+# ===================================================
+#
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+# "local" is for Unix domain socket connections only
+local   all             all                                     peer
+# IPv4 local connections:
+host    all             all             127.0.0.1/32            md5
+# IPv6 local connections:
+host    all             all             ::1/128                 md5
+# Allow connections from the web server
+host    {{ db_name }}   {{ db_user }}   {{ web_server_ip }}     md5
+host    {{ db_name }}   {{ db_user }}   172.0.0.0/8             md5  # Pour les connexions Docker
+# Allow all connections (for development only, restrict in production)
+host    all             all             0.0.0.0/0               md5 

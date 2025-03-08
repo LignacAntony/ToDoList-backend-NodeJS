@@ -1,0 +1,21 @@
+---
+- name: "Configure Web Server"
+  hosts: web_servers
+  become: true
+
+  vars_files:
+    - vars/vars.yml
+
+  roles:
+    - nodejs
+
+- name: "Configure Database Server"
+  hosts: db_servers
+  become: true
+
+  vars_files:
+    - vars/vars.yml
+
+  roles:
+    - postgres
+

@@ -1,9 +1,9 @@
 module.exports = {
   dialect: 'postgres',
-  host: 'db_server',
-  username: 'todouser',
-  password: 'todopassword',
-  database: 'tasklist',
+  host: '{{ db_host }}',
+  username: '{{ db_user }}',
+  password: '{{ db_password }}',
+  database: '{{ db_name }}',
   define: {
     timestamps: true,
     underscored: true,

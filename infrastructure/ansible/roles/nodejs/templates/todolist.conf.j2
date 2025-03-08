@@ -1,0 +1,24 @@
+<VirtualHost *:80>
+    ServerName todolist.local
+    DocumentRoot /var/www/todolist
+
+    ErrorLog ${APACHE_LOG_DIR}/todolist-error.log
+    CustomLog ${APACHE_LOG_DIR}/todolist-access.log combined
+
+    <Directory /var/www/todolist>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ProxyRequests Off
+    ProxyPreserveHost On
+    ProxyVia Full
+
+    <Proxy *>
+        Require all granted
+    </Proxy>
+
+    ProxyPass / http://localhost:3333/
+    ProxyPassReverse / http://localhost:3333/
+</VirtualHost> 

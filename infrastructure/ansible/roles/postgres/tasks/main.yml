@@ -1,0 +1,59 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Install PostgreSQL
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2
+    state: present
+  become: true
+
+- name: Ensure PostgreSQL is started and enabled
+  service:
+    name: postgresql
+    state: started
+    enabled: true
+  become: true
+
+- name: Create PostgreSQL user
+  postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    role_attr_flags: CREATEDB,SUPERUSER
+  become: true
+  become_user: postgres
+
+- name: Create PostgreSQL database
+  postgresql_db:
+    name: "{{ db_name }}"
+    owner: "{{ db_user }}"
+    encoding: UTF8
+    template: template0
+  become: true
+  become_user: postgres
+
+- name: Configure PostgreSQL to allow remote connections
+  template:
+    src: pg_hba.conf.j2
+    dest: /etc/postgresql/*/main/pg_hba.conf
+    owner: postgres
+    group: postgres
+    mode: '0640'
+  become: true
+  notify: restart postgresql
+
+- name: Configure PostgreSQL to listen on all interfaces
+  template:
+    src: postgresql.conf.j2
+    dest: /etc/postgresql/*/main/postgresql.conf
+    owner: postgres
+    group: postgres
+    mode: '0644'
+  become: true
+  notify: restart postgresql 

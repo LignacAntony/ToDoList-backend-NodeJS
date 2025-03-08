@@ -1,0 +1,17 @@
+# Project configuration
+IS_DOCKER: true
+project_name: "todolist"
+document_root: "/var/www/{{ project_name }}"
+hostname: "{{ project_name }}.local"
+
+# Database configuration
+db_name: "tasklist"
+db_user: "todouser"
+db_password: "todopassword"
+db_host: "db_server"  # Hostname du serveur de base de données
+
+# Web server configuration
+web_server_ip: "web_server"  # Hostname du serveur web
+
+# Application configuration
+app_port: 3333

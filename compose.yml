@@ -1,0 +1,47 @@
+services:
+  web_server:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+      args:
+        - USERNAME=deployer
+        - PASSWORD=deployer
+    environment:
+      - PUBLIC_KEY_FILE=/root/.ssh/authorized_keys
+    volumes:
+      - ./:/var/www/todolist
+      - ./infrastructure/ssh_keys/id_ed25519.pub:/root/.ssh/authorized_keys
+    command: ["sh", "-c", "while true; do sleep 30; done;"]
+    ports:
+      - "8080:80"
+      - "2222:22"  # Port SSH pour se connecter au serveur web
+    networks:
+      - todolist_network
+    hostname: web_server
+
+  db_server:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+      args:
+        - USERNAME=deployer
+        - PASSWORD=deployer
+    environment:
+      - PUBLIC_KEY_FILE=/root/.ssh/authorized_keys
+    volumes:
+      - ./infrastructure/ssh_keys/id_ed25519.pub:/root/.ssh/authorized_keys
+      - postgres_data:/var/lib/postgresql/data
+    command: ["sh", "-c", "while true; do sleep 30; done;"]
+    ports:
+      - "5432:5432"
+      - "2223:22"  # Port SSH pour se connecter au serveur de base de données
+    networks:
+      - todolist_network
+    hostname: db_server
+
+networks:
+  todolist_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
