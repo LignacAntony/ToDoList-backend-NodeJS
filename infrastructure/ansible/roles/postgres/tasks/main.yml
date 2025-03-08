@@ -1,59 +1,53 @@
 ---
-- name: Update apt cache
-  apt:
-    update_cache: true
-    cache_valid_time: 3600
+- name: "Find out if PostgreSQL is initialized"
+  ansible.builtin.stat:
+    path: "/etc/postgresql/{{ postgresql_version | default('16') }}/main/pg_hba.conf"
+  register: postgres_data
+
+- name: "Initialize PostgreSQL (Debian/Ubuntu)"
+  shell: "pg_createcluster {{ postgresql_version | default('16') }} main start"
+  when: not postgres_data.stat.exists
+
+- name: "Start PostgreSQL service"
+  shell: "service postgresql start"
   become: true
 
-- name: Install PostgreSQL
-  apt:
-    name:
-      - postgresql
-      - postgresql-contrib
-      - python3-psycopg2
-    state: present
+- name: "Enable PostgreSQL service"
+  shell: "systemctl enable postgresql"
   become: true
+  ignore_errors: true
 
-- name: Ensure PostgreSQL is started and enabled
-  service:
-    name: postgresql
-    state: started
-    enabled: true
-  become: true
+- name: "Create app database"
+  command: sudo -u postgres psql -c "CREATE DATABASE {{ db_name }};"
+  register: create_db_result
+  failed_when: create_db_result.rc != 0 and "already exists" not in create_db_result.stderr
+  changed_when: create_db_result.rc == 0
 
-- name: Create PostgreSQL user
-  postgresql_user:
-    name: "{{ db_user }}"
-    password: "{{ db_password }}"
-    role_attr_flags: CREATEDB,SUPERUSER
-  become: true
-  become_user: postgres
+- name: "Create db user"
+  command: sudo -u postgres psql -c "CREATE USER {{ db_user }} WITH SUPERUSER PASSWORD '{{ db_password }}';"
+  register: create_user_result
+  failed_when: create_user_result.rc != 0 and "already exists" not in create_user_result.stderr
+  changed_when: create_user_result.rc == 0
 
-- name: Create PostgreSQL database
-  postgresql_db:
-    name: "{{ db_name }}"
-    owner: "{{ db_user }}"
-    encoding: UTF8
-    template: template0
-  become: true
-  become_user: postgres
+- name: "Grant db user access to app db"
+  command: sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE {{ db_name }} TO {{ db_user }};"
+  register: grant_result
+  changed_when: grant_result.rc == 0
 
-- name: Configure PostgreSQL to allow remote connections
-  template:
-    src: pg_hba.conf.j2
-    dest: /etc/postgresql/*/main/pg_hba.conf
-    owner: postgres
-    group: postgres
-    mode: '0640'
-  become: true
-  notify: restart postgresql
+- name: "Allow md5 connection for the db user"
+  lineinfile:
+    path: "/etc/postgresql/{{ postgresql_version | default('16') }}/main/pg_hba.conf"
+    line: "host    all             {{ db_user }}             0.0.0.0/0               md5"
+    insertafter: EOF
+  notify: restart postgres
 
-- name: Configure PostgreSQL to listen on all interfaces
-  template:
-    src: postgresql.conf.j2
-    dest: /etc/postgresql/*/main/postgresql.conf
-    owner: postgres
-    group: postgres
+- name: "Copy migration SQL file to remote server"
+  copy:
+    src: "conf/migration.sql"
+    dest: "/tmp/migration.sql"
     mode: '0644'
-  become: true
-  notify: restart postgresql 
+
+- name: "Execute SQL migration script"
+  command: sudo -u postgres psql -d {{ db_name }} -f /tmp/migration.sql
+  register: migration_result
+  changed_when: migration_result.rc == 0

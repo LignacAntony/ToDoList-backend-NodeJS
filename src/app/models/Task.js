@@ -5,7 +5,7 @@ class Task extends Model {
     super.init(
       {
         task: Sequelize.STRING,
-        check: Sequelize.BOOLEAN,
+        is_completed: Sequelize.BOOLEAN,
       },
       {
         sequelize,

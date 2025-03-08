@@ -67,7 +67,7 @@ Example: {
 * Route to edit task: **base_url/tasks/:task_id** (where **:task_id** is the task id) (necessary to send the bearer token)
 
 Example: {
-           "check": true
+           "is_completed": true
          }
 
 * Route to delete task: **base_url/tasks/:task_id** (where **:task_id** is the task id) (necessary to send the bearer token)

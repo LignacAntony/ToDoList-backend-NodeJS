@@ -8,6 +8,11 @@ import TaskController from './app/controllers/TaskController';
 
 const routes = new Router();
 
+// Route de test pour vérifier que l'application fonctionne
+routes.get('/test', (req, res) => {
+  return res.json({ message: 'API TodoList fonctionne correctement!' });
+});
+
 routes.post('/users', UserController.store);
 routes.post('/sessions', SessionController.store);
 routes.use(authMiddleware);

@@ -2,7 +2,3 @@
 - name: restart apache2
   shell: service apache2 restart
   become: true
-
-- name: restart todolist
-  shell: service todolist restart
-  become: true

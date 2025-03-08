@@ -1,4 +1,29 @@
 ---
+- name: "Configure Database Server"
+  hosts: db_servers
+  become: true
+
+  vars_files:
+    - vars/vars.yml
+
+  pre_tasks:
+    - name: "Update apt cache"
+      apt:
+        update_cache: yes
+        
+    - name: "Install packages"
+      apt: "name={{ item }} state=present"
+      with_items:
+        - postgresql
+        - postgresql-contrib
+        - postgresql-client
+        - python3-psycopg2
+        - python3-dev
+        - libpq-dev
+
+  roles:
+    - postgres
+
 - name: "Configure Web Server"
   hosts: web_servers
   become: true
@@ -8,14 +33,4 @@
 
   roles:
     - nodejs
-
-- name: "Configure Database Server"
-  hosts: db_servers
-  become: true
-
-  vars_files:
-    - vars/vars.yml
-
-  roles:
-    - postgres
 

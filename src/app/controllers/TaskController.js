@@ -5,7 +5,7 @@ class TaskController {
 
   async index(req, res) {
     const tasks = await Task.findAll({
-      where: { user_id: req.userId, check: false },
+      where: { user_id: req.userId, is_completed: false },
     });
 
     return res.json(tasks);
