@@ -39,9 +39,9 @@
   become: true
 
 - name: Install application dependencies
-  npm:
-    path: /var/www/todolist
-    state: present
+  shell: |
+    cd /var/www/todolist
+    npm install
   become: true
   become_user: "{{ ansible_user }}"
 
@@ -73,31 +73,31 @@
     - proxy_balancer
     - lbmethod_byrequests
   become: true
+  notify:
+    - restart apache2
 
 - name: Enable todolist site
   command: a2ensite todolist.conf
+  become: true
   notify:
     - restart apache2
+
+- name: Disable default Apache site
+  command: a2dissite 000-default.conf
+  become: true
+  ignore_errors: true
+  notify:
+    - restart apache2
+
+- name: Ensure Apache is restarted
+  shell: service apache2 restart
+  become: true
 
 - name: Start Node.js application
   shell: |
     cd /var/www/todolist
-    pkill -f "node -r sucrase/register" || true
-    pkill -f "nodemon" || true
-    nohup npm run dev > /var/log/node-app.log 2>&1 &
-    echo "Application Node.js démarrée"
-    for i in $(seq 1 10); do
-      sleep 3
-      if curl -s http://localhost:3333 -o /dev/null; then
-        echo "L'application Node.js est accessible"
-        break
-      fi
-      echo "En attente que l'application Node.js soit prête... tentative $i/10"
-    done
+    (npm run dev&)
   become: true
-  become_user: "{{ ansible_user }}"
-  async: 1000
-  poll: 0
 
 # Obtenir l'adresse IP du serveur de base de données
 - name: Get DB server IP
@@ -133,16 +133,23 @@
   debug:
     var: connection_test.stdout_lines
 
-- name: Run database migration using psql
+# - name: Run database migration using psql
+#   shell: |
+#     cd /var/www/todolist
+#     PGPASSWORD={{ db_password }} psql -h db_server -U {{ db_user }} -d {{ db_name }} -c "SELECT 1;"
+#     if [ $? -eq 0 ]; then
+#       echo "Connection to PostgreSQL successful, running migration..."
+#       npx sequelize-cli db:migrate
+#     else
+#       echo "Connection to PostgreSQL failed, cannot run migration."
+#     fi
+#   become: true
+#   become_user: "{{ ansible_user }}"
+#   ignore_errors: true
+
+- name: Check if Node.js application is running
   shell: |
-    cd /var/www/todolist
-    PGPASSWORD={{ db_password }} psql -h db_server -U {{ db_user }} -d {{ db_name }} -c "SELECT 1;"
-    if [ $? -eq 0 ]; then
-      echo "Connection to PostgreSQL successful, running migration..."
-      npx sequelize-cli db:migrate
-    else
-      echo "Connection to PostgreSQL failed, cannot run migration."
-    fi
+    curl -s http://localhost:3333/test || echo "Application not responding"
+  register: app_check
   become: true
-  become_user: "{{ ansible_user }}"
   ignore_errors: true
