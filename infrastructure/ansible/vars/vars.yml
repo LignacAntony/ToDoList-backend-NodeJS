@@ -8,11 +8,11 @@ hostname: "{{ project_name }}.local"
 db_name: "tasklist"
 db_user: "todouser"
 db_password: "todopassword"
-db_host: "db_server"  # Hostname du serveur de base de données
-postgresql_version: "16"  # Version de PostgreSQL à utiliser
+db_host: "db_server" 
+postgresql_version: "16" 
 
 # Web server configuration
-web_server_ip: "web_server"  # Hostname du serveur web
+web_server_ip: "web_server" 
 
 # Application configuration
 app_port: 3333

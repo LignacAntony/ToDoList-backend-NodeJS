@@ -18,4 +18,6 @@ class Database {
   }
 }
 
-export default new Database();
+const database = new Database();
+export const sequelize = database.connection;
+export default database;

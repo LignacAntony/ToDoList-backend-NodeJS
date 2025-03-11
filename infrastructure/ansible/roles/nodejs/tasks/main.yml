@@ -11,6 +11,7 @@
       - curl
       - git
       - apache2
+      - postgresql-client
     state: present
   become: true
 
@@ -89,67 +90,67 @@
   notify:
     - restart apache2
 
-- name: Ensure Apache is restarted
-  shell: service apache2 restart
+- name: Arrêter les processus Node.js existants
+  shell: |
+    pkill -f "node" || true
+    sleep 2
+  become: true
+  ignore_errors: true
+
+- name: Créer le script de démarrage
+  copy:
+    content: |
+      #!/bin/bash
+      
+      # Changer de répertoire
+      cd /var/www/todolist
+      
+      # Définir les variables d'environnement
+      export NODE_ENV=development
+      
+      # Démarrer l'application
+      exec node -r sucrase/register src/server.js >> app.log 2>&1
+    dest: /var/www/todolist/start-app.sh
+    mode: '0755'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
   become: true
 
-- name: Start Node.js application
+- name: Créer le script de surveillance
+  copy:
+    content: |
+      #!/bin/bash
+      
+      # Arrêter les processus existants
+      pkill -f "node -r sucrase/register" || true
+      sleep 2
+      
+      # Démarrer l'application
+      cd /var/www/todolist
+      nohup ./start-app.sh > /dev/null 2>&1 &
+      echo "Application démarrée avec PID: $!"
+      
+      # Surveiller l'application et la redémarrer si nécessaire
+      while true; do
+        if ! pgrep -f "node -r sucrase/register" > /dev/null; then
+          echo "Application arrêtée, redémarrage..."
+          cd /var/www/todolist
+          nohup ./start-app.sh > /dev/null 2>&1 &
+          echo "Application redémarrée avec PID: $!"
+        fi
+        sleep 5
+      done
+    dest: /var/www/todolist/run-app.sh
+    mode: '0755'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  become: true
+
+- name: Démarrer l'application avec surveillance
   shell: |
     cd /var/www/todolist
-    (npm run dev&)
+    nohup ./run-app.sh > /dev/null 2>&1 &
   become: true
-
-# Obtenir l'adresse IP du serveur de base de données
-- name: Get DB server IP
-  shell: getent hosts db_server | awk '{ print $1 }'
-  register: db_server_ip
-  ignore_errors: true
-
-- name: Display DB server IP
-  debug:
-    var: db_server_ip.stdout
-
-- name: Install network tools
-  apt:
-    name:
-      - netcat-openbsd
-      - net-tools
-      - postgresql-client
-    state: present
-  become: true
-
-- name: Test connection to PostgreSQL
-  shell: |
-    echo "Testing connection to PostgreSQL..."
-    echo "Hostname resolution:"
-    getent hosts db_server
-    echo "Connection test:"
-    nc -zv db_server 5432 || echo "Connection failed"
-  register: connection_test
-  become: true
-  ignore_errors: true
-
-- name: Display connection test results
-  debug:
-    var: connection_test.stdout_lines
-
-# - name: Run database migration using psql
-#   shell: |
-#     cd /var/www/todolist
-#     PGPASSWORD={{ db_password }} psql -h db_server -U {{ db_user }} -d {{ db_name }} -c "SELECT 1;"
-#     if [ $? -eq 0 ]; then
-#       echo "Connection to PostgreSQL successful, running migration..."
-#       npx sequelize-cli db:migrate
-#     else
-#       echo "Connection to PostgreSQL failed, cannot run migration."
-#     fi
-#   become: true
-#   become_user: "{{ ansible_user }}"
-#   ignore_errors: true
-
-- name: Check if Node.js application is running
-  shell: |
-    curl -s http://localhost:3333/test || echo "Application not responding"
-  register: app_check
-  become: true
-  ignore_errors: true
+  become_user: "{{ ansible_user }}"
+  async: 60
+  poll: 0

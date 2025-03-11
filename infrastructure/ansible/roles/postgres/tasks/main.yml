@@ -1,11 +1,11 @@
 ---
 - name: "Find out if PostgreSQL is initialized"
   ansible.builtin.stat:
-    path: "/etc/postgresql/{{ postgresql_version | default('16') }}/main/pg_hba.conf"
+    path: "/etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf"
   register: postgres_data
 
 - name: "Initialize PostgreSQL (Debian/Ubuntu)"
-  shell: "pg_createcluster {{ postgresql_version | default('16') }} main start"
+  shell: "pg_createcluster {{ postgresql_version }} main start"
   when: not postgres_data.stat.exists
 
 - name: "Start PostgreSQL service"
@@ -16,6 +16,15 @@
   shell: "systemctl enable postgresql"
   become: true
   ignore_errors: true
+
+- name: "Configure PostgreSQL to listen on all interfaces"
+  lineinfile:
+    path: "/etc/postgresql/{{ postgresql_version }}/main/postgresql.conf"
+    regexp: "^#?listen_addresses\\s*=.*$"
+    line: "listen_addresses = '*'"
+    state: present
+  become: true
+  notify: restart postgres
 
 - name: "Create app database"
   command: sudo -u postgres psql -c "CREATE DATABASE {{ db_name }};"
@@ -36,8 +45,15 @@
 
 - name: "Allow md5 connection for the db user"
   lineinfile:
-    path: "/etc/postgresql/{{ postgresql_version | default('16') }}/main/pg_hba.conf"
+    path: "/etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf"
     line: "host    all             {{ db_user }}             0.0.0.0/0               md5"
+    insertafter: EOF
+  notify: restart postgres
+
+- name: "Allow md5 connection for all users"
+  lineinfile:
+    path: "/etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf"
+    line: "host    all             all             0.0.0.0/0               md5"
     insertafter: EOF
   notify: restart postgres
 
@@ -51,3 +67,7 @@
   command: sudo -u postgres psql -d {{ db_name }} -f /tmp/migration.sql
   register: migration_result
   changed_when: migration_result.rc == 0
+
+- name: "Ensure PostgreSQL is restarted"
+  shell: "service postgresql restart"
+  become: true
